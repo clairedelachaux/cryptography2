@@ -3,6 +3,16 @@ from Crypto.Cipher import AES
 import hashlib
 
 
+def bytes_XOR(a, b):
+    return bytes([_a ^ _b for _a, _b in zip(a, b)])
+
+
+def increment_byte(a):
+    inta = int.from_bytes(a)
+    inta = (inta+1) % 256
+    return int.to_bytes(inta)
+
+
 def PKCS5(m):
     l = len(m)
     l_hat = 2 ** 4 - l
@@ -16,12 +26,22 @@ def AES_Keygen():
 
 
 def AES_Enc(aes_k, m):
-    cipher = AES.new(aes_k, AES.MODE_CTR, nonce=nonce)
-    return cipher.encrypt(m)
+    cipher = AES.new(aes_k, AES.MODE_ECB)
+    m_prime = PKCS5(m)
+    r = get_random_bytes(16)
+    c = r
+    l = len(m_prime) // 16
+    for i in range(l):
+        ci = bytes_XOR(cipher.encrypt(r), m[l:(16 * l)])
+        c = c + ci
+        barr = bytearray(r)
+        int_r = (int_r + 1) % (2 ** 16)
+        r = int.to_bytes(int_r, byteorder='big')
+    return c
 
 
 def AES_Dec(aes_k, c):
-    cipher = AES.new(aes_k, AES.MODE_CTR, nonce=nonce)
+    cipher = AES.new(aes_k, AES.MODE_CTR)
     return cipher.decrypt(c)
 
 
@@ -64,13 +84,8 @@ def MAC_CCA_Dec(c, k):
         return AES_Enc(aes_k, mprime)
 
 
-global nonce
-nonce = get_random_bytes(8)
-data = b"Hello World!"
-data2 = b"Another message"
-key = MAC_CCA_Keygen()
-c = MAC_CCA_Enc(data, key)
-c2 = [data2, c[1]]
-m = MAC_CCA_Dec(c, key)
-m2 = MAC_CCA_Dec(c2, key)
-print(m, "\n", m2)
+m = b"Hello World!!!!!"
+m2 = PKCS5(m)
+b = b"100001"
+b = increment_byte(b)
+
