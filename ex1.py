@@ -8,14 +8,19 @@ def bytes_XOR(a, b):
 
 
 def increment_byte(a):
-    inta = int.from_bytes(a)
-    inta = (inta+1) % 256
-    return int.to_bytes(inta)
+    n = len(a)
+    b = b""
+    c = 1
+    for i in range(n - 1, -1, -1):
+        sum = a[i] + c
+        c = sum // 256
+        b = int.to_bytes(sum % 256) + b
+    return b
 
 
 def PKCS5(m):
-    l = len(m)
-    l_hat = 2 ** 4 - l
+    l = len(m) // 16
+    l_hat = 16 - l
     end = bytes(l_hat * [l_hat])
     return m + end
 
@@ -27,22 +32,28 @@ def AES_Keygen():
 
 def AES_Enc(aes_k, m):
     cipher = AES.new(aes_k, AES.MODE_ECB)
-    m_prime = PKCS5(m)
     r = get_random_bytes(16)
     c = r
-    l = len(m_prime) // 16
+    l = len(m) // 16
     for i in range(l):
-        ci = bytes_XOR(cipher.encrypt(r), m[l:(16 * l)])
+        fi = cipher.encrypt(r)
+        ci = bytes_XOR(fi, m[16*i:16*(i + 1)])
         c = c + ci
-        barr = bytearray(r)
-        int_r = (int_r + 1) % (2 ** 16)
-        r = int.to_bytes(int_r, byteorder='big')
+        r = increment_byte(r)
     return c
 
 
 def AES_Dec(aes_k, c):
-    cipher = AES.new(aes_k, AES.MODE_CTR)
-    return cipher.decrypt(c)
+    cipher = AES.new(aes_k, AES.MODE_ECB)
+    r = c[0:16]
+    m = b""
+    l = len(c) // 16
+    for i in range(1, l):
+        fi = cipher.encrypt(r)
+        mi = bytes_XOR(fi, c[16*i:16*(i + 1)])
+        m = m + mi
+        r = increment_byte(r)
+    return m
 
 
 def MAC_Keygen():
@@ -69,7 +80,8 @@ def MAC_CCA_Keygen():
 def MAC_CCA_Enc(m, k):
     aes_k = k[0]
     mac_k = k[1]
-    c = AES_Enc(aes_k, m)
+    mprime = PKCS5(m)
+    c = AES_Enc(aes_k, mprime)
     t = MAC(c, mac_k)
     return c, t
 
@@ -81,11 +93,13 @@ def MAC_CCA_Dec(c, k):
     tprime = c[1]
     t = MAC(mprime, mac_k)
     if t == tprime:
-        return AES_Enc(aes_k, mprime)
+        return AES_Dec(aes_k, mprime)
 
 
-m = b"Hello World!!!!!"
-m2 = PKCS5(m)
-b = b"100001"
-b = increment_byte(b)
-
+k = MAC_CCA_Keygen()
+m = b"Hello World!"
+c1 = MAC_CCA_Enc(m, k)
+c2 = (c1[0], b"0"+c1[1][1:])
+m1 = MAC_CCA_Dec(c1, k)
+m2 = MAC_CCA_Dec(c2, k)
+print(m, m1, m2, sep="\n")
