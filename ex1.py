@@ -19,8 +19,8 @@ def increment_byte(a):
 
 
 def PKCS5(m):
-    l = len(m) // 16
-    l_hat = 16 - l
+    l = len(m)
+    l_hat = (l-1)% 16 + 1
     end = bytes(l_hat * [l_hat])
     return m + end
 
@@ -93,7 +93,12 @@ def MAC_CCA_Dec(c, k):
     tprime = c[1]
     t = MAC(mprime, mac_k)
     if t == tprime:
-        return AES_Dec(aes_k, mprime)
+        m = AES_Dec(aes_k, mprime)
+        if m[-1]==16:
+            l = 16
+        else:
+            l = len(m) - 16 + m[-1]
+        return m[:l]
 
 
 k = MAC_CCA_Keygen()
